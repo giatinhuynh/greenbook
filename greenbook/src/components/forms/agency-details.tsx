@@ -97,49 +97,10 @@ const AgencyDetails = ({ data }: Props) => {
 
   const handleSubmit = async (values: z.infer<typeof FormSchema>) => {
     try {
-      let newUserData
-      let custId
-      if (!data?.id) {
-        const bodyData = {
-          email: values.companyEmail,
-          name: values.name,
-          shipping: {
-            address: {
-              city: values.city,
-              country: values.country,
-              line1: values.address,
-              postal_code: values.zipCode,
-              state: values.zipCode,
-            },
-            name: values.name,
-          },
-          address: {
-            city: values.city,
-            country: values.country,
-            line1: values.address,
-            postal_code: values.zipCode,
-            state: values.zipCode,
-          },
-        }
-
-        const customerResponse = await fetch('/api/stripe/create-customer', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(bodyData),
-        })
-        const customerData: { customerId: string } =
-          await customerResponse.json()
-        custId = customerData.customerId
-      }
-
-      newUserData = await initUser({ role: 'AGENCY_OWNER' })
-      if (!data?.customerId && !custId) return
-
+      const newUserData = await initUser({ role: 'AGENCY_OWNER' })
+  
       const response = await upsertAgency({
         id: data?.id ? data.id : v4(),
-        customerId: data?.customerId || custId || '',
         address: values.address,
         agencyLogo: values.agencyLogo,
         city: values.city,
@@ -151,13 +112,13 @@ const AgencyDetails = ({ data }: Props) => {
         zipCode: values.zipCode,
         createdAt: new Date(),
         updatedAt: new Date(),
-        companyEmail: values.companyEmail,
-        connectAccountId: '',
-        goal: 5,
+        companyEmail: values.companyEmail
       })
+  
       toast({
         title: 'Created Agency',
       })
+      
       if (data?.id) return router.refresh()
       if (response) {
         return router.refresh()
@@ -171,6 +132,7 @@ const AgencyDetails = ({ data }: Props) => {
       })
     }
   }
+  
   const handleDeleteAgency = async () => {
     if (!data?.id) return
     setDeletingAgency(true)
@@ -396,31 +358,6 @@ const AgencyDetails = ({ data }: Props) => {
                   </FormItem>
                 )}
               />
-              {data?.id && (
-                <div className="flex flex-col gap-2">
-                  <FormLabel>Create A Goal</FormLabel>
-                  <FormDescription>
-                    ✨ Create a goal for your agency. As your business grows
-                    your goals grow too so dont forget to set the bar higher!
-                  </FormDescription>
-                  <NumberInput
-                    defaultValue={data?.goal}
-                    onValueChange={async (val) => {
-                      if (!data?.id) return
-                      await updateAgencyDetails(data.id, { goal: val })
-                      await saveActivityLogsNotification({
-                        agencyId: data.id,
-                        description: `Updated the agency goal to | ${val} Sub Account`,
-                        subaccountId: undefined,
-                      })
-                      router.refresh()
-                    }}
-                    min={1}
-                    className="bg-background !border !border-input"
-                    placeholder="Sub Account Goal"
-                  />
-                </div>
-              )}
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -436,41 +373,40 @@ const AgencyDetails = ({ data }: Props) => {
                 <div>Danger Zone</div>
               </div>
               <div className="text-muted-foreground">
-                Deleting your agency cannpt be undone. This will also delete all
+                Deleting your agency cannot be undone. This will also delete all
                 sub accounts and all data related to your sub accounts. Sub
                 accounts will no longer have access to funnels, contacts etc.
               </div>
               <AlertDialogTrigger
                 disabled={isLoading || deletingAgency}
-                className="text-red-600 p-2 text-center mt-2 rounded-md hove:bg-red-600 hover:text-white whitespace-nowrap"
+                className="text-red-600 p-2 text-center mt-2 rounded-md hover:bg-red-600 hover:text-white whitespace-nowrap"
               >
                 {deletingAgency ? 'Deleting...' : 'Delete Agency'}
               </AlertDialogTrigger>
             </div>
           )}
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-left">
-                Are you absolutely sure?
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-left">
-                This action cannot be undone. This will permanently delete the
-                Agency account and all related sub accounts.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="flex items-center">
-              <AlertDialogCancel className="mb-2">Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={deletingAgency}
-                className="bg-destructive hover:bg-destructive"
-                onClick={handleDeleteAgency}
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
         </CardContent>
       </Card>
+
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the
+            Agency account and all related sub accounts.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="flex items-center">
+          <AlertDialogCancel className="mb-2">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={deletingAgency}
+            className="bg-destructive hover:bg-destructive"
+            onClick={handleDeleteAgency}
+          >
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
     </AlertDialog>
   )
 }

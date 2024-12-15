@@ -96,9 +96,7 @@ const SubAccountDetails: React.FC<SubAccountDetailsProps> = ({
         createdAt: new Date(),
         updatedAt: new Date(),
         companyEmail: values.companyEmail,
-        agencyId: agencyDetails.id,
-        connectAccountId: '',
-        goal: 5000,
+        agencyId: agencyDetails.id
       })
       if (!response) throw new Error('No response from server')
       await saveActivityLogsNotification({

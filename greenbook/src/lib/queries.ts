@@ -1,11 +1,11 @@
 'use server'
-import { auth, clerkClient, currentUser } from '@clerk/nextjs/server';
-import { db } from './db';
-import { redirect } from 'next/navigation';
+
+import { clerkClient, currentUser } from '@clerk/nextjs/server'
+import { db } from './db'
+import { redirect } from 'next/navigation'
 import {
   Agency,
   Lane,
-  Plan,
   Prisma,
   Role,
   SubAccount,
@@ -234,7 +234,7 @@ export const initUser = async (newUser: Partial<User>) => {
   return userData
 }
 
-export const upsertAgency = async (agency: Agency, price?: Plan) => {
+export const upsertAgency = async (agency: Agency) => {
   if (!agency.companyEmail) return null
   try {
     const agencyDetails = await db.agency.upsert({
@@ -477,7 +477,8 @@ export const sendInvitation = async (
     data: { email, agencyId, role },
   })
   try {
-    const invitation = await (await clerkClient()).invitations.createInvitation({
+    const clerk = await clerkClient()
+    const invitation = await clerk.invitations.createInvitation({
       emailAddress: email,
       redirectUrl: process.env.NEXT_PUBLIC_URL,
       publicMetadata: {

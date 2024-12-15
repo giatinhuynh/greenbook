@@ -25,20 +25,22 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
     >
-      <body className={font.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <ModalProvider>
-            {children}
-            <Toaster />
-            <SonnarToaster position="bottom-left" />
-          </ModalProvider>
-        </ThemeProvider>
-      </body>
+      <ClerkProvider>
+        <body className={font.className}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ModalProvider>
+              {children}
+              <Toaster />
+              <SonnarToaster position="bottom-left" />
+            </ModalProvider>
+          </ThemeProvider>
+        </body>
+      </ClerkProvider>
     </html>
   )
 }
