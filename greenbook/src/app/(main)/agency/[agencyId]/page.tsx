@@ -10,12 +10,16 @@ import { db } from '@/lib/db'
 import { Contact2 } from 'lucide-react'
 import React from 'react'
 
-const Page = async ({
-  params,
-}: {
-  params: { agencyId: string }
-}) => {
-  const { agencyId } = params
+interface PageProps {
+  params: {
+    agencyId: Promise<string>
+  }
+}
+
+const Page = async ({ params }: PageProps) => {
+  const agencyId = await params.agencyId
+
+  // Get user first
   const agencyDetails = await db.agency.findUnique({
     where: {
       id: agencyId,
@@ -26,7 +30,7 @@ const Page = async ({
 
   const subaccounts = await db.subAccount.findMany({
     where: {
-      agencyId: params.agencyId,
+      agencyId: agencyId,
     },
   })
 
@@ -48,7 +52,7 @@ const Page = async ({
           </Card>
         </div>
       </div>
-    </div>
+    </div>  
   )
 }
 

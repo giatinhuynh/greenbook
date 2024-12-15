@@ -264,7 +264,7 @@ const MenuOptions = ({
           <nav className="relative">
             <Command className="rounded-lg overflow-visible bg-transparent">
               <CommandInput placeholder="Search..." />
-              <CommandList className="py-4 overflow-visible">
+              <CommandList className="py-4">
                 <CommandEmpty>No Results Found</CommandEmpty>
                 <CommandGroup className="overflow-visible">
                   {sidebarOpt.map((sidebarOptions) => {
@@ -278,7 +278,7 @@ const MenuOptions = ({
                     return (
                       <CommandItem
                         key={sidebarOptions.id}
-                        className="md:w-[320px] w-full"
+                        className="w-full"
                       >
                         <Link
                           href={sidebarOptions.link}
