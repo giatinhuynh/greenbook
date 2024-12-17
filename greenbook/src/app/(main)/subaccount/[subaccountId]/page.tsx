@@ -13,17 +13,19 @@ type Props = {
 }
 
 const SubaccountPageId = async ({ params, searchParams }: Props) => {
+  const { subaccountId } = await params // Ensure params is awaited
+
   const subaccountDetails = await db.subAccount.findUnique({
     where: {
-      id: params.subaccountId,
+      id: subaccountId,
     },
   })
 
-  if (!subaccountDetails) return
+  if (!subaccountDetails) return null // Return null or a fallback UI if subaccountDetails is not found
 
   const funnels = await db.funnel.findMany({
     where: {
-      subAccountId: params.subaccountId,
+      subAccountId: subaccountId,
     },
     include: {
       FunnelPages: true,
@@ -47,9 +49,9 @@ const SubaccountPageId = async ({ params, searchParams }: Props) => {
               <CardHeader>
                 <CardDescription>Funnel Performance</CardDescription>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground flex flex-col gap-12 justify-between">
+              <CardContent className="text-sm text-muted-foreground flex flex-col gap-8 justify-between">
                 <SubaccountFunnelChart data={funnelPerformanceMetrics} />
-                <div className="lg:w-[150px]">
+                <div className="lg:w-[300px]">
                   Total page visits across all funnels. Hover over to get more
                   details on funnel page performance.
                 </div>

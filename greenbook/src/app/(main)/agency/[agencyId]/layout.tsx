@@ -16,12 +16,13 @@ interface LayoutProps {
 }
 
 const Layout = async ({ children, params }: LayoutProps) => {
+  const { agencyId } = await params
   const user = await currentUser()
   if (!user) {
     redirect('/agency/sign-in')
   }
 
-  const routeAgencyId = params.agencyId
+  const routeAgencyId = agencyId
 
   try {
     // Verify invitation and get agency ID

@@ -33,11 +33,10 @@ const FunnelSettings: React.FC<FunnelSettingsProps> = async ({
         <CardHeader>
           <CardTitle>Funnel Settings</CardTitle>
           <CardDescription>
-            Configure your funnel settings and properties.
+            Configure your funnel settings here.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Add your non-payment related funnel settings here */}
         </CardContent>
       </Card>
 

@@ -11,30 +11,38 @@ type Props = {
 }
 
 const TeamPage = async ({ params }: Props) => {
-  const authUser = await currentUser()
-  const teamMembers = await db.user.findMany({
-    where: {
-      Agency: {
-        id: params.agencyId,
-      },
-    },
-    include: {
-      Agency: { include: { SubAccount: true } },
-      Permissions: { include: { SubAccount: true } },
-    },
-  })
+  // Await all async operations in parallel for better performance
+  const [authUser, agencyId] = await Promise.all([
+    currentUser(),
+    Promise.resolve(params.agencyId), // Explicitly await the param
+  ])
 
   if (!authUser) return null
-  const agencyDetails = await db.agency.findUnique({
-    where: {
-      id: params.agencyId,
-    },
-    include: {
-      SubAccount: true,
-    },
-  })
 
-  if (!agencyDetails) return
+  // Now use the awaited agencyId in your queries
+  const [teamMembers, agencyDetails] = await Promise.all([
+    db.user.findMany({
+      where: {
+        Agency: {
+          id: agencyId,
+        },
+      },
+      include: {
+        Agency: { include: { SubAccount: true } },
+        Permissions: { include: { SubAccount: true } },
+      },
+    }),
+    db.agency.findUnique({
+      where: {
+        id: agencyId,
+      },
+      include: {
+        SubAccount: true,
+      },
+    }),
+  ])
+
+  if (!agencyDetails) return null
 
   return (
     <DataTable
@@ -48,7 +56,7 @@ const TeamPage = async ({ params }: Props) => {
       filterValue="name"
       columns={columns}
       data={teamMembers}
-    ></DataTable>
+    />
   )
 }
 

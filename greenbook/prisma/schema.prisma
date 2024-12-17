@@ -116,6 +116,7 @@ model SubAccount {
   Agency           Agency                    @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   SidebarOption    SubAccountSidebarOption[]
   Permissions      Permissions[]
+  websites         Website[]
   Funnels          Funnel[]
   Media            Media[]
   Contact          Contact[]
@@ -388,4 +389,61 @@ model Notification {
   @@index([agencyId])
   @@index([subAccountId])
   @@index([userId])
+}
+
+model Website {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  domain      String?   @unique
+  favicon     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  published   Boolean   @default(false)
+  
+  // Navigation structure stored as JSON
+  navigation  Json?     @default("[]")
+  
+  // Global styles and settings stored as JSON
+  settings    Json?     @default("{}")
+  
+  // Relationships
+  subAccountId String
+  subAccount   SubAccount @relation(fields: [subAccountId], references: [id], onDelete: Cascade)
+  pages        WebPage[]
+  
+  @@index([subAccountId])
+}
+
+model WebPage {
+  id          String   @id @default(uuid())
+  name        String
+  path        String   
+  content     Json?    
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isHomePage  Boolean  @default(false)
+  published   Boolean  @default(false)
+  visits      Int      @default(0)
+  
+  // SEO Metadata
+  metaTitle       String?
+  metaDescription String?
+  metaKeywords    String?
+  
+  // Page Settings
+  settings    Json?    @default("{}")
+  
+  // Parent-child relationship for nested pages
+  parentId    String?
+  parent      WebPage?  @relation("PageHierarchy", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children    WebPage[] @relation("PageHierarchy")
+  
+  // Website relationship
+  websiteId   String
+  website     Website   @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  
+  @@unique([websiteId, path])
+  @@index([websiteId])
+  @@index([parentId])
 }

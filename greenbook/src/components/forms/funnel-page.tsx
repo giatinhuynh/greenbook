@@ -19,7 +19,6 @@ import {
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '../ui/input'
-
 import { Button } from '../ui/button'
 import Loading from '../global/loading'
 import { useToast } from '../ui/use-toast'
@@ -50,7 +49,7 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
 }) => {
   const { toast } = useToast()
   const router = useRouter()
-  //ch
+
   const form = useForm<z.infer<typeof FunnelPageSchema>>({
     resolver: zodResolver(FunnelPageSchema),
     mode: 'onChange',
@@ -60,18 +59,26 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
     },
   })
 
+  // Use a check to avoid redundant reset calls
   useEffect(() => {
     if (defaultData) {
-      form.reset({ name: defaultData.name, pathName: defaultData.pathName })
+      form.reset({
+        name: defaultData.name || '',
+        pathName: defaultData.pathName || '',
+      })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultData])
 
   const onSubmit = async (values: z.infer<typeof FunnelPageSchema>) => {
-    if (order !== 0 && !values.pathName)
-      return form.setError('pathName', {
+    if (order !== 0 && !values.pathName) {
+      form.setError('pathName', {
         message:
-          "Pages other than the first page in the funnel require a path name example 'secondstep'.",
+          "Pages other than the first page in the funnel require a path name, e.g., 'secondstep'.",
       })
+      return
+    }
+
     try {
       const response = await upsertFunnelPage(
         subaccountId,
@@ -87,20 +94,20 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
       await saveActivityLogsNotification({
         agencyId: undefined,
         description: `Updated a funnel page | ${response?.name}`,
-        subaccountId: subaccountId,
+        subaccountId,
       })
 
       toast({
         title: 'Success',
-        description: 'Saves Funnel Page Details',
+        description: 'Saved Funnel Page Details',
       })
       router.refresh()
     } catch (error) {
-      console.log(error)
+      console.error(error)
       toast({
         variant: 'destructive',
-        title: 'Oppse!',
-        description: 'Could Save Funnel Page Details',
+        title: 'Oops!',
+        description: 'Could not save Funnel Page Details',
       })
     }
   }
@@ -110,28 +117,22 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
       <CardHeader>
         <CardTitle>Funnel Page</CardTitle>
         <CardDescription>
-          Funnel pages are flow in the order they are created by default. You
-          can move them around to change their order.
+          Funnel pages are organized in the order they are created by default.
+          You can move them around to change their order.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col gap-6"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-6">
             <FormField
               disabled={form.formState.isSubmitting}
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem className="flex-1">
+                <FormItem>
                   <FormLabel>Name</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Name"
-                      {...field}
-                    />
+                    <Input placeholder="Name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,7 +143,7 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
               control={form.control}
               name="pathName"
               render={({ field }) => (
-                <FormItem className="flex-1">
+                <FormItem>
                   <FormLabel>Path Name</FormLabel>
                   <FormControl>
                     <Input
@@ -166,16 +167,15 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
 
               {defaultData?.id && (
                 <Button
-                  variant={'outline'}
+                  variant="outline"
                   className="w-22 self-end border-destructive text-destructive hover:bg-destructive"
                   disabled={form.formState.isSubmitting}
                   type="button"
                   onClick={async () => {
-                    const response = await deleteFunnelePage(defaultData.id)
-                    await saveActivityLogsNotification({
-                      agencyId: undefined,
-                      description: `Deleted a funnel page | ${response?.name}`,
-                      subaccountId: subaccountId,
+                    await deleteFunnelePage(defaultData.id)
+                    toast({
+                      title: 'Deleted',
+                      description: `Funnel page deleted successfully`,
                     })
                     router.refresh()
                   }}
@@ -183,10 +183,11 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
                   {form.formState.isSubmitting ? <Loading /> : <Trash />}
                 </Button>
               )}
+
               {defaultData?.id && (
                 <Button
-                  variant={'outline'}
-                  size={'icon'}
+                  variant="outline"
+                  size="icon"
                   disabled={form.formState.isSubmitting}
                   type="button"
                   onClick={async () => {
@@ -200,7 +201,7 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
                       {
                         ...defaultData,
                         id: v4(),
-                        order: lastFunnelPage ? lastFunnelPage : 0,
+                        order: lastFunnelPage || 0,
                         visits: 0,
                         name: `${defaultData.name} Copy`,
                         pathName: `${defaultData.pathName}copy`,
@@ -210,7 +211,7 @@ const CreateFunnelPage: React.FC<CreateFunnelPageProps> = ({
                     )
                     toast({
                       title: 'Success',
-                      description: 'Saves Funnel Page Details',
+                      description: 'Funnel Page duplicated successfully',
                     })
                     router.refresh()
                   }}

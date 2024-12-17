@@ -10,26 +10,27 @@ type Props = {
 }
 
 const SubaccountSettingPage = async ({ params }: Props) => {
+  const { subaccountId } = await params // Ensure params is awaited
   const authUser = await currentUser()
-  if (!authUser) return
+  if (!authUser) return null // Return null or a fallback UI if authUser is not found
   const userDetails = await db.user.findUnique({
     where: {
       email: authUser.emailAddresses[0].emailAddress,
     },
   })
-  if (!userDetails) return
+  if (!userDetails) return null // Return null or a fallback UI if userDetails is not found
 
   const subAccount = await db.subAccount.findUnique({
-    where: { id: params.subaccountId },
+    where: { id: subaccountId },
   })
-  if (!subAccount) return
+  if (!subAccount) return null // Return null or a fallback UI if subAccount is not found
 
   const agencyDetails = await db.agency.findUnique({
     where: { id: subAccount.agencyId },
     include: { SubAccount: true },
   })
 
-  if (!agencyDetails) return
+  if (!agencyDetails) return null // Return null or a fallback UI if agencyDetails is not found
   const subAccounts = agencyDetails.SubAccount
 
   return (
@@ -43,7 +44,7 @@ const SubaccountSettingPage = async ({ params }: Props) => {
         />
         <UserDetails
           type="subaccount"
-          id={params.subaccountId}
+          id={subaccountId}
           subAccounts={subAccounts}
           userData={userDetails}
         />

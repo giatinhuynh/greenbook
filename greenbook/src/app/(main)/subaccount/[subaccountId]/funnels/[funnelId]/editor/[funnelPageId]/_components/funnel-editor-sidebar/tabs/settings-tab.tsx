@@ -45,7 +45,7 @@ const SettingsTab = (props: Props) => {
     const styleSettings = e.target.id
     let value = e.target.value
     const styleObject = {
-      [styleSettings]: value,
+      [styleSettings]: value || '',
     }
 
     dispatch({
@@ -54,7 +54,7 @@ const SettingsTab = (props: Props) => {
         elementDetails: {
           ...state.editor.selectedElement,
           styles: {
-            ...state.editor.selectedElement.styles,
+            ...state.editor.selectedElement?.styles,
             ...styleObject,
           },
         },
@@ -66,7 +66,7 @@ const SettingsTab = (props: Props) => {
     const settingProperty = e.target.id
     let value = e.target.value
     const styleObject = {
-      [settingProperty]: value,
+      [settingProperty]: value || '',
     }
 
     dispatch({
@@ -75,7 +75,7 @@ const SettingsTab = (props: Props) => {
         elementDetails: {
           ...state.editor.selectedElement,
           content: {
-            ...state.editor.selectedElement.content,
+            ...state.editor.selectedElement?.content,
             ...styleObject,
           },
         },
@@ -103,7 +103,7 @@ const SettingsTab = (props: Props) => {
                   id="href"
                   placeholder="https:domain.example.com/pathname"
                   onChange={handleChangeCustomValues}
-                  value={state.editor.selectedElement.content.href}
+                  value={state.editor.selectedElement?.content?.href || ''}
                 />
               </div>
             )}
@@ -128,7 +128,7 @@ const SettingsTab = (props: Props) => {
                   },
                 })
               }
-              value={state.editor.selectedElement.styles.textAlign}
+              value={state.editor.selectedElement?.styles?.textAlign || ''}
             >
               <TabsList className="flex items-center flex-row justify-between border-[1px] rounded-md bg-transparent h-fit gap-4">
                 <TabsTrigger
@@ -161,9 +161,9 @@ const SettingsTab = (props: Props) => {
           <div className="flex flex-col gap-2">
             <p className="text-muted-foreground">Font Family</p>
             <Input
-              id="DM Sans"
+              id="fontFamily"
               onChange={handleOnChanges}
-              value={state.editor.selectedElement.styles.fontFamily}
+              value={state.editor.selectedElement?.styles?.fontFamily || 'DM Sans'}
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -171,7 +171,7 @@ const SettingsTab = (props: Props) => {
             <Input
               id="color"
               onChange={handleOnChanges}
-              value={state.editor.selectedElement.styles.color}
+              value={state.editor.selectedElement?.styles?.color || ''}
             />
           </div>
           <div className="flex gap-4">
@@ -186,6 +186,7 @@ const SettingsTab = (props: Props) => {
                     },
                   })
                 }
+                value={String(state.editor.selectedElement?.styles?.['fontWeight'] || '')}
               >
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select a weight" />
@@ -206,7 +207,7 @@ const SettingsTab = (props: Props) => {
                 placeholder="px"
                 id="fontSize"
                 onChange={handleOnChanges}
-                value={state.editor.selectedElement.styles.fontSize}
+                value={state.editor.selectedElement?.styles?.fontSize || ''}
               />
             </div>
           </div>
@@ -230,7 +231,7 @@ const SettingsTab = (props: Props) => {
                       id="height"
                       placeholder="px"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.height}
+                      value={state.editor.selectedElement?.styles?.height || ''}
                     />
                   </div>
                   <div>
@@ -239,7 +240,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="width"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.width}
+                      value={state.editor.selectedElement?.styles?.width || ''}
                     />
                   </div>
                 </div>
@@ -253,7 +254,7 @@ const SettingsTab = (props: Props) => {
                       id="marginTop"
                       placeholder="px"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.marginTop}
+                      value={state.editor.selectedElement?.styles?.marginTop || ''}
                     />
                   </div>
                   <div>
@@ -262,7 +263,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="marginBottom"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.marginBottom}
+                      value={state.editor.selectedElement?.styles?.marginBottom || ''}
                     />
                   </div>
                 </div>
@@ -273,7 +274,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="marginLeft"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.marginLeft}
+                      value={state.editor.selectedElement?.styles?.marginLeft || ''}
                     />
                   </div>
                   <div>
@@ -282,7 +283,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="marginRight"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.marginRight}
+                      value={state.editor.selectedElement?.styles?.marginRight || ''}
                     />
                   </div>
                 </div>
@@ -298,7 +299,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="paddingTop"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.paddingTop}
+                      value={state.editor.selectedElement?.styles?.paddingTop || ''}
                     />
                   </div>
                   <div>
@@ -307,7 +308,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="paddingBottom"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.paddingBottom}
+                      value={state.editor.selectedElement?.styles?.paddingBottom || ''}
                     />
                   </div>
                 </div>
@@ -318,7 +319,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="paddingLeft"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.paddingLeft}
+                      value={state.editor.selectedElement?.styles?.paddingLeft || ''}
                     />
                   </div>
                   <div>
@@ -327,7 +328,7 @@ const SettingsTab = (props: Props) => {
                       placeholder="px"
                       id="paddingRight"
                       onChange={handleOnChanges}
-                      value={state.editor.selectedElement.styles.paddingRight}
+                      value={state.editor.selectedElement?.styles?.paddingRight || ''}
                     />
                   </div>
                 </div>
@@ -348,12 +349,12 @@ const SettingsTab = (props: Props) => {
             <Label className="text-muted-foreground">Opacity</Label>
             <div className="flex items-center justify-end">
               <small className="p-2">
-                {typeof state.editor.selectedElement.styles?.opacity ===
+                {typeof state.editor.selectedElement?.styles?.opacity ===
                 'number'
-                  ? state.editor.selectedElement.styles?.opacity
+                  ? state.editor.selectedElement?.styles?.opacity
                   : parseFloat(
                       (
-                        state.editor.selectedElement.styles?.opacity || '0'
+                        state.editor.selectedElement?.styles?.opacity || '0'
                       ).replace('%', '')
                     ) || 0}
                 %
@@ -369,11 +370,11 @@ const SettingsTab = (props: Props) => {
                 })
               }}
               defaultValue={[
-                typeof state.editor.selectedElement.styles?.opacity === 'number'
-                  ? state.editor.selectedElement.styles?.opacity
+                typeof state.editor.selectedElement?.styles?.opacity === 'number'
+                  ? state.editor.selectedElement?.styles?.opacity
                   : parseFloat(
                       (
-                        state.editor.selectedElement.styles?.opacity || '0'
+                        state.editor.selectedElement?.styles?.opacity || '0'
                       ).replace('%', '')
                     ) || 0,
               ]}
@@ -385,12 +386,12 @@ const SettingsTab = (props: Props) => {
             <Label className="text-muted-foreground">Border Radius</Label>
             <div className="flex items-center justify-end">
               <small className="">
-                {typeof state.editor.selectedElement.styles?.borderRadius ===
+                {typeof state.editor.selectedElement?.styles?.borderRadius ===
                 'number'
-                  ? state.editor.selectedElement.styles?.borderRadius
+                  ? state.editor.selectedElement?.styles?.borderRadius
                   : parseFloat(
                       (
-                        state.editor.selectedElement.styles?.borderRadius || '0'
+                        state.editor.selectedElement?.styles?.borderRadius || '0'
                       ).replace('px', '')
                     ) || 0}
                 px
@@ -406,12 +407,12 @@ const SettingsTab = (props: Props) => {
                 })
               }}
               defaultValue={[
-                typeof state.editor.selectedElement.styles?.borderRadius ===
+                typeof state.editor.selectedElement?.styles?.borderRadius ===
                 'number'
-                  ? state.editor.selectedElement.styles?.borderRadius
+                  ? state.editor.selectedElement?.styles?.borderRadius
                   : parseFloat(
                       (
-                        state.editor.selectedElement.styles?.borderRadius || '0'
+                        state.editor.selectedElement?.styles?.borderRadius || '0'
                       ).replace('%', '')
                     ) || 0,
               ]}
@@ -426,7 +427,7 @@ const SettingsTab = (props: Props) => {
                 className="w-12 "
                 style={{
                   backgroundColor:
-                    state.editor.selectedElement.styles.backgroundColor,
+                    state.editor.selectedElement?.styles?.backgroundColor || '',
                 }}
               />
               <Input
@@ -434,7 +435,7 @@ const SettingsTab = (props: Props) => {
                 className="!border-y-0 rounded-none !border-r-0 mr-2"
                 id="backgroundColor"
                 onChange={handleOnChanges}
-                value={state.editor.selectedElement.styles.backgroundColor}
+                value={state.editor.selectedElement?.styles?.backgroundColor || ''}
               />
             </div>
           </div>
@@ -445,7 +446,7 @@ const SettingsTab = (props: Props) => {
                 className="w-12 "
                 style={{
                   backgroundImage:
-                    state.editor.selectedElement.styles.backgroundImage,
+                    state.editor.selectedElement?.styles?.backgroundImage || '',
                 }}
               />
               <Input
@@ -453,7 +454,7 @@ const SettingsTab = (props: Props) => {
                 className="!border-y-0 rounded-none !border-r-0 mr-2"
                 id="backgroundImage"
                 onChange={handleOnChanges}
-                value={state.editor.selectedElement.styles.backgroundImage}
+                value={state.editor.selectedElement?.styles?.backgroundImage || ''}
               />
             </div>
           </div>
@@ -468,7 +469,7 @@ const SettingsTab = (props: Props) => {
                   },
                 })
               }
-              value={state.editor.selectedElement.styles.backgroundSize?.toString()}
+              value={state.editor.selectedElement?.styles?.backgroundSize?.toString() || ''}
             >
               <TabsList className="flex items-center flex-row justify-between border-[1px] rounded-md bg-transparent h-fit gap-4">
                 <TabsTrigger
@@ -510,7 +511,7 @@ const SettingsTab = (props: Props) => {
                 },
               })
             }
-            value={state.editor.selectedElement.styles.justifyContent}
+            value={state.editor.selectedElement?.styles?.justifyContent || ''}
           >
             <TabsList className="flex items-center flex-row justify-between border-[1px] rounded-md bg-transparent h-fit gap-4">
               <TabsTrigger
@@ -555,7 +556,7 @@ const SettingsTab = (props: Props) => {
                 },
               })
             }
-            value={state.editor.selectedElement.styles.alignItems}
+            value={state.editor.selectedElement?.styles?.alignItems || ''}
           >
             <TabsList className="flex items-center flex-row justify-between border-[1px] rounded-md bg-transparent h-fit gap-4">
               <TabsTrigger
@@ -586,6 +587,7 @@ const SettingsTab = (props: Props) => {
                   },
                 })
               }}
+              checked={state.editor.selectedElement?.styles?.display === 'flex'}
             />
             <Label className="text-muted-foreground">Flex</Label>
           </div>
@@ -595,7 +597,7 @@ const SettingsTab = (props: Props) => {
               placeholder="px"
               id="flexDirection"
               onChange={handleOnChanges}
-              value={state.editor.selectedElement.styles.flexDirection}
+              value={state.editor.selectedElement?.styles?.flexDirection || ''}
             />
           </div>
         </AccordionContent>

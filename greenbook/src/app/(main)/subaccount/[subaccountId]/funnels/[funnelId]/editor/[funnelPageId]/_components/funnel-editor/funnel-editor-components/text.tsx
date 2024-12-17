@@ -3,85 +3,105 @@ import { Badge } from '@/components/ui/badge'
 import { EditorElement, useEditor } from '@/providers/editor/editor-provider'
 import clsx from 'clsx'
 import { Trash } from 'lucide-react'
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 
 type Props = {
   element: EditorElement
 }
 
-const TextComponent = (props: Props) => {
-  const { dispatch, state } = useEditor()
-
-  const handleDeleteElement = () => {
-    dispatch({
-      type: 'DELETE_ELEMENT',
-      payload: { elementDetails: props.element },
-    })
+// Helper function to sanitize styles
+const sanitizeStyles = (styles: Record<string, any>) => {
+  const sanitized: Record<string, any> = {}
+  for (const [key, value] of Object.entries(styles)) {
+    const camelCaseKey = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    sanitized[camelCaseKey] = value
   }
-  const styles = props.element.styles
+  return sanitized
+}
 
-  const handleOnClickBody = (e: React.MouseEvent) => {
+const TextComponent = ({ element }: Props) => {
+  const { dispatch, state } = useEditor()
+  const textRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (textRef.current && !Array.isArray(element.content) && element.content.innerText) {
+      textRef.current.innerText = element.content.innerText
+    }
+  }, [element.content])
+
+  const handleContentChange = () => {
+    if (textRef.current) {
+      dispatch({
+        type: 'UPDATE_ELEMENT',
+        payload: {
+          elementDetails: {
+            ...element,
+            content: {
+              innerText: textRef.current.innerText
+            }
+          }
+        }
+      })
+    }
+  }
+
+  const handleOnClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     dispatch({
       type: 'CHANGE_CLICKED_ELEMENT',
       payload: {
-        elementDetails: props.element,
+        elementDetails: element,
       },
     })
   }
 
-  //WE ARE NOT ADDING DRAG DROP
+  const handleDeleteElement = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    dispatch({
+      type: 'DELETE_ELEMENT',
+      payload: { elementDetails: element },
+    })
+  }
+
+  const getContent = () => {
+    if (Array.isArray(element.content)) return ''
+    return element.content.innerText || ''
+  }
+
+  const sanitizedStyles = sanitizeStyles(element.styles)
+
   return (
     <div
-      style={styles}
+      ref={textRef}
+      contentEditable={!state.editor.liveMode}
+      onBlur={handleContentChange}
+      onClick={handleOnClick}
       className={clsx(
-        'p-[2px] w-full m-[5px] relative text-[16px] transition-all',
+        'relative p-4 w-full hover:outline-blue-500 hover:outline hover:outline-1',
         {
-          '!border-blue-500':
-            state.editor.selectedElement.id === props.element.id,
-
-          '!border-solid': state.editor.selectedElement.id === props.element.id,
-          'border-dashed border-[1px] border-slate-300': !state.editor.liveMode,
+          'outline-blue-500 outline outline-1':
+            state.editor.selectedElement.id === element.id &&
+            !state.editor.liveMode,
+          '!pointer-events-none': state.editor.liveMode,
         }
       )}
-      onClick={handleOnClickBody}
+      style={sanitizedStyles}
+      suppressContentEditableWarning={true}
     >
-      {state.editor.selectedElement.id === props.element.id &&
-        !state.editor.liveMode && (
+      {getContent()}
+      {!state.editor.liveMode && state.editor.selectedElement.id === element.id && (
+        <>
           <Badge className="absolute -top-[23px] -left-[1px] rounded-none rounded-t-lg">
-            {state.editor.selectedElement.name}
+            {element.name}
           </Badge>
-        )}
-      <span
-        contentEditable={!state.editor.liveMode}
-        onBlur={(e) => {
-          const spanElement = e.target as HTMLSpanElement
-          dispatch({
-            type: 'UPDATE_ELEMENT',
-            payload: {
-              elementDetails: {
-                ...props.element,
-                content: {
-                  innerText: spanElement.innerText,
-                },
-              },
-            },
-          })
-        }}
-      >
-        {!Array.isArray(props.element.content) &&
-          props.element.content.innerText}
-      </span>
-      {state.editor.selectedElement.id === props.element.id &&
-        !state.editor.liveMode && (
-          <div className="absolute bg-primary px-2.5 py-1 text-xs font-bold -top-[25px] -right-[1px] rounded-none rounded-t-lg !text-white">
+          <div className="absolute bg-primary px-2.5 py-1 text-xs font-bold -top-[25px] -right-[1px] rounded-none rounded-t-lg">
             <Trash
-              className="cursor-pointer"
               size={16}
               onClick={handleDeleteElement}
             />
           </div>
-        )}
+        </>
+      )}
     </div>
   )
 }

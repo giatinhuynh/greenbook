@@ -19,7 +19,7 @@ const FunnelStepCard = ({ activePage, funnelPage, index }: Props) => {
       draggableId={funnelPage.id.toString()}
       index={index}
     >
-      {(provided: any, snapshot: any) => {
+      {(provided, snapshot) => {
         if (snapshot.isDragging) {
           const offset = { x: 300 }
           //@ts-ignore

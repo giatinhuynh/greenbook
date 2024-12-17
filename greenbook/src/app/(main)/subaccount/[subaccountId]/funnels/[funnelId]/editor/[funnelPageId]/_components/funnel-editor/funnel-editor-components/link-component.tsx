@@ -31,14 +31,14 @@ const LinkComponent = (props: Props) => {
     })
   }
 
-  const styles = props.element.styles
-
   const handleDeleteElement = () => {
     dispatch({
       type: 'DELETE_ELEMENT',
       payload: { elementDetails: props.element },
     })
   }
+
+  const styles = props.element.styles
 
   return (
     <div
@@ -51,49 +51,52 @@ const LinkComponent = (props: Props) => {
         {
           '!border-blue-500':
             state.editor.selectedElement.id === props.element.id,
-
           '!border-solid': state.editor.selectedElement.id === props.element.id,
           'border-dashed border-[1px] border-slate-300': !state.editor.liveMode,
         }
       )}
     >
+      {/* Display Badge */}
       {state.editor.selectedElement.id === props.element.id &&
         !state.editor.liveMode && (
-          <Badge className="absolute -top-[23px] -left-[1px] rounded-none rounded-t-lg ">
+          <Badge className="absolute -top-[23px] -left-[1px] rounded-none rounded-t-lg">
             {state.editor.selectedElement.name}
           </Badge>
         )}
+
+      {/* Editable Content */}
       {!Array.isArray(props.element.content) &&
-        (state.editor.previewMode || state.editor.liveMode) && (
+        (state.editor.previewMode || state.editor.liveMode ? (
           <Link href={props.element.content.href || '#'}>
             {props.element.content.innerText}
           </Link>
-        )}
-      {!state.editor.previewMode && !state.editor.liveMode && (
-        <span
-          contentEditable={!state.editor.liveMode}
-          onBlur={(e) => {
-            const spanElement = e.target as HTMLSpanElement
-            dispatch({
-              type: 'UPDATE_ELEMENT',
-              payload: {
-                elementDetails: {
-                  ...props.element,
-                  content: {
-                    innerText: spanElement.innerText,
+        ) : (
+          <span
+            contentEditable={!state.editor.liveMode}
+            suppressContentEditableWarning // Prevent React from managing children
+            onBlur={(e) => {
+              const spanElement = e.target as HTMLSpanElement
+              dispatch({
+                type: 'UPDATE_ELEMENT',
+                payload: {
+                  elementDetails: {
+                    ...props.element,
+                    content: {
+                      innerText: spanElement.textContent || '',
+                    },
                   },
                 },
-              },
-            })
-          }}
-        >
-          {!Array.isArray(props.element.content) &&
-            props.element.content.innerText}
-        </span>
-      )}
+              })
+            }}
+          >
+            {props.element.content.innerText}
+          </span>
+        ))}
+
+      {/* Delete Button */}
       {state.editor.selectedElement.id === props.element.id &&
         !state.editor.liveMode && (
-          <div className="absolute bg-primary px-2.5 py-1 text-xs font-bold  -top-[25px] -right-[1px] rounded-none rounded-t-lg !text-white">
+          <div className="absolute bg-primary px-2.5 py-1 text-xs font-bold -top-[25px] -right-[1px] rounded-none rounded-t-lg !text-white">
             <Trash
               className="cursor-pointer"
               size={16}
@@ -104,5 +107,6 @@ const LinkComponent = (props: Props) => {
     </div>
   )
 }
+
 
 export default LinkComponent
