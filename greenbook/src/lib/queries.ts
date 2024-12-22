@@ -1,215 +1,50 @@
 'use server'
-
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { db } from './db'
-import { redirect } from 'next/navigation'
-import {
-  Agency,
-  Lane,
-  Prisma,
-  Role,
-  SubAccount,
-  Tag,
-  Ticket,
-  User,
+import { AuthorizationError, ValidationError } from './errors'
+import { 
+  Role, 
+  User, 
+  Client, 
+  Project, 
+  ProjectStatus, 
+  ClientUser 
 } from '@prisma/client'
-import { v4 } from 'uuid'
-import {
-  CreateFunnelFormSchema,
-  CreateMediaType,
-  UpsertFunnelPage,
+import { 
+  ProjectCreateInput, 
+  ProjectWithClient, 
+  ProjectWithDetails 
 } from './types'
-import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
 
+// User Operations
 export const getAuthUserDetails = async () => {
   const user = await currentUser()
-  if (!user) {
-    return
-  }
+  if (!user) return null
 
   const userData = await db.user.findUnique({
     where: {
       email: user.emailAddresses[0].emailAddress,
     },
     include: {
-      Agency: {
+      clients: true,
+      clientUsers: {
         include: {
-          SidebarOption: true,
-          SubAccount: {
+          client: {
             include: {
-              SidebarOption: true,
-            },
-          },
-        },
-      },
-      Permissions: true,
-    },
+              projects: true
+            }
+          }
+        }
+      }
+    }
   })
 
   return userData
 }
 
-export const saveActivityLogsNotification = async ({
-  agencyId,
-  description,
-  subaccountId,
-}: {
-  agencyId?: string
-  description: string
-  subaccountId?: string
-}) => {
-  const authUser = await currentUser()
-  let userData
-  if (!authUser) {
-    const response = await db.user.findFirst({
-      where: {
-        Agency: {
-          SubAccount: {
-            some: { id: subaccountId },
-          },
-        },
-      },
-    })
-    if (response) {
-      userData = response
-    }
-  } else {
-    userData = await db.user.findUnique({
-      where: { email: authUser?.emailAddresses[0].emailAddress },
-    })
-  }
-
-  if (!userData) {
-    console.log('Could not find a user')
-    return
-  }
-
-  let foundAgencyId = agencyId
-  if (!foundAgencyId) {
-    if (!subaccountId) {
-      throw new Error(
-        'You need to provide atleast an agency Id or subaccount Id'
-      )
-    }
-    const response = await db.subAccount.findUnique({
-      where: { id: subaccountId },
-    })
-    if (response) foundAgencyId = response.agencyId
-  }
-  if (subaccountId) {
-    await db.notification.create({
-      data: {
-        notification: `${userData.name} | ${description}`,
-        User: {
-          connect: {
-            id: userData.id,
-          },
-        },
-        Agency: {
-          connect: {
-            id: foundAgencyId,
-          },
-        },
-        SubAccount: {
-          connect: { id: subaccountId },
-        },
-      },
-    })
-  } else {
-    await db.notification.create({
-      data: {
-        notification: `${userData.name} | ${description}`,
-        User: {
-          connect: {
-            id: userData.id,
-          },
-        },
-        Agency: {
-          connect: {
-            id: foundAgencyId,
-          },
-        },
-      },
-    })
-  }
-}
-
-export const createTeamUser = async (agencyId: string, user: User) => {
-  if (user.role === 'AGENCY_OWNER') return null
-  const response = await db.user.create({ data: { ...user } })
-  return response
-}
-
-export const verifyAndAcceptInvitation = async () => {
-  const user = await currentUser()
-  if (!user) return redirect('/sign-in')
-  const invitationExists = await db.invitation.findUnique({
-    where: {
-      email: user.emailAddresses[0].emailAddress,
-      status: 'PENDING',
-    },
-  })
-
-  if (invitationExists) {
-    const userDetails = await createTeamUser(invitationExists.agencyId, {
-      email: invitationExists.email,
-      agencyId: invitationExists.agencyId,
-      avatarUrl: user.imageUrl,
-      id: user.id,
-      name: `${user.firstName} ${user.lastName}`,
-      role: invitationExists.role,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    await saveActivityLogsNotification({
-      agencyId: invitationExists?.agencyId,
-      description: `Joined`,
-      subaccountId: undefined,
-    })
-    if (userDetails) {
-      const clerk = await clerkClient()
-      await clerk.users.updateUserMetadata(user.id, {
-        privateMetadata: {
-          role: userDetails.role || 'SUBACCOUNT_USER',
-        },
-      })
-
-      await db.invitation.delete({
-        where: { email: userDetails.email },
-      })
-
-      return userDetails.agencyId
-    } else return null
-  } else {
-    const agency = await db.user.findUnique({
-      where: {
-        email: user.emailAddresses[0].emailAddress,
-      },
-    })
-    return agency ? agency.agencyId : null
-  }
-}
-
-export const updateAgencyDetails = async (
-  agencyId: string,
-  agencyDetails: Partial<Agency>
-) => {
-  const response = await db.agency.update({
-    where: { id: agencyId },
-    data: { ...agencyDetails },
-  })
-  return response
-}
-
-export const deleteAgency = async (agencyId: string) => {
-  const response = await db.agency.delete({ where: { id: agencyId } })
-  return response
-}
-
 export const initUser = async (newUser: Partial<User>) => {
   const user = await currentUser()
-  if (!user) return
+  if (!user) return null
 
   const userData = await db.user.upsert({
     where: {
@@ -221,656 +56,407 @@ export const initUser = async (newUser: Partial<User>) => {
       avatarUrl: user.imageUrl,
       email: user.emailAddresses[0].emailAddress,
       name: `${user.firstName} ${user.lastName}`,
-      role: newUser.role || 'SUBACCOUNT_USER',
+      role: newUser.role || 'USER',
     },
   })
 
-  await (await clerkClient()).users.updateUserMetadata(user.id, {
+  const clerk = await clerkClient()
+  await clerk.users.updateUserMetadata(user.id, {
     privateMetadata: {
-      role: newUser.role || 'SUBACCOUNT_USER',
+      role: newUser.role || 'USER',
     },
   })
 
   return userData
 }
 
-export const upsertAgency = async (agency: Agency) => {
-  if (!agency.companyEmail) return null
-  try {
-    const agencyDetails = await db.agency.upsert({
-      where: {
-        id: agency.id,
-      },
-      update: agency,
-      create: {
-        users: {
-          connect: { email: agency.companyEmail },
-        },
-        ...agency,
-        SidebarOption: {
-          create: [
-            {
-              name: 'Dashboard',
-              icon: 'category',
-              link: `/agency/${agency.id}`,
-            },
-            {
-              name: 'Settings',
-              icon: 'settings',
-              link: `/agency/${agency.id}/settings`,
-            },
-            {
-              name: 'Sub Accounts',
-              icon: 'person',
-              link: `/agency/${agency.id}/all-subaccounts`,
-            },
-            {
-              name: 'Team',
-              icon: 'shield',
-              link: `/agency/${agency.id}/team`,
-            },
-          ],
-        },
-      },
-    })
-    return agencyDetails
-  } catch (error) {
-    console.log(error)
-  }
-}
+// Client Operations
+export const createClient = async (client: Partial<Client>) => {
+  const user = await currentUser()
+  if (!user) return null
 
-export const getNotificationAndUser = async (agencyId: string) => {
-  try {
-    const response = await db.notification.findMany({
-      where: { agencyId },
-      include: { User: true },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
-    return response
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-export const upsertSubAccount = async (subAccount: SubAccount) => {
-  if (!subAccount.companyEmail) return null
-  const agencyOwner = await db.user.findFirst({
-    where: {
-      Agency: {
-        id: subAccount.agencyId,
-      },
-      role: 'AGENCY_OWNER',
-    },
-  })
-  if (!agencyOwner) return console.log('🔴Erorr could not create subaccount')
-  const permissionId = v4()
-  const response = await db.subAccount.upsert({
-    where: { id: subAccount.id },
-    update: subAccount,
-    create: {
-      ...subAccount,
-      Permissions: {
-        create: {
-          access: true,
-          email: agencyOwner.email,
-          id: permissionId,
-        },
-        connect: {
-          subAccountId: subAccount.id,
-          id: permissionId,
-        },
-      },
-      Pipeline: {
-        create: { name: 'Lead Cycle' },
-      },
-      SidebarOption: {
-        create: [
-          {
-            name: 'Settings',
-            icon: 'settings',
-            link: `/subaccount/${subAccount.id}/settings`,
-          },
-          {
-            name: 'Funnels',
-            icon: 'pipelines',
-            link: `/subaccount/${subAccount.id}/funnels`,
-          },
-          {
-            name: 'Media',
-            icon: 'database',
-            link: `/subaccount/${subAccount.id}/media`,
-          },
-          {
-            name: 'Analysis',
-            icon: 'category',
-            link: `/subaccount/${subAccount.id}`,
-          },
-        ],
-      },
-    },
-  })
-  return response
-}
-
-export const getUserPermissions = async (userId: string) => {
-  const response = await db.user.findUnique({
-    where: { id: userId },
-    select: { Permissions: { include: { SubAccount: true } } },
-  })
-
-  return response
-}
-
-export const updateUser = async (user: Partial<User>) => {
-  const response = await db.user.update({
-    where: { email: user.email },
-    data: { ...user },
-  })
-
-  await (await clerkClient()).users.updateUserMetadata(response.id, {
-    privateMetadata: {
-      role: user.role || 'SUBACCOUNT_USER',
-    },
-  })
-
-  return response
-}
-
-export const changeUserPermissions = async (
-  permissionId: string | undefined,
-  userEmail: string,
-  subAccountId: string,
-  permission: boolean
-) => {
-  try {
-    const response = await db.permissions.upsert({
-      where: { id: permissionId },
-      update: { access: permission },
-      create: {
-        access: permission,
-        email: userEmail,
-        subAccountId: subAccountId,
-      },
-    })
-    return response
-  } catch (error) {
-    console.log('🔴Could not change persmission', error)
-  }
-}
-
-export const getSubaccountDetails = async (subaccountId: string) => {
-  const response = await db.subAccount.findUnique({
-    where: {
-      id: subaccountId,
-    },
-  })
-  return response
-}
-
-export const deleteSubAccount = async (subaccountId: string) => {
-  const response = await db.subAccount.delete({
-    where: {
-      id: subaccountId,
-    },
-  })
-  return response
-}
-export const deleteUser = async (userId: string) => {
-  await (await clerkClient()).users.updateUserMetadata(userId, {
-    privateMetadata: {
-      role: undefined,
-    },
-  })
-  const deletedUser = await db.user.delete({ where: { id: userId } })
-
-  return deletedUser
-}
-
-export const getUser = async (id: string) => {
-  const user = await db.user.findUnique({
-    where: {
-      id,
-    },
-  })
-
-  return user
-}
-
-export const sendInvitation = async (
-  role: Role,
-  email: string,
-  agencyId: string
-) => {
-  const resposne = await db.invitation.create({
-    data: { email, agencyId, role },
-  })
-  try {
-    const clerk = await clerkClient()
-    const invitation = await clerk.invitations.createInvitation({
-      emailAddress: email,
-      redirectUrl: process.env.NEXT_PUBLIC_URL,
-      publicMetadata: {
-        throughInvitation: true,
-        role,
-      },
-    })
-  } catch (error) {
-    console.log(error)
-    throw error
+  if (!client.name || !client.companyName || !client.companyEmail) {
+    throw new ValidationError('Missing required fields')
   }
 
-  return resposne
-}
+  const response = await db.$transaction(async (tx) => {
+    const newClient = await tx.client.create({
+      data: {
+        name: client.name!,
+        companyName: client.companyName!,
+        companyEmail: client.companyEmail!,
+        companyLogo: client.companyLogo ?? null,
+        companyPhone: client.companyPhone ?? null,
+        address: client.address,
+        city: client.city,
+        state: client.state,
+        country: client.country,
+        createdById: user.id
+      }
+    })
 
-export const getMedia = async (subaccountId: string) => {
-  const mediafiles = await db.subAccount.findUnique({
-    where: {
-      id: subaccountId,
-    },
-    include: { Media: true },
-  })
-  return mediafiles
-}
+    // Add creator as admin
+    await tx.clientUser.create({
+      data: {
+        clientId: newClient.id,
+        userId: user.id,
+        role: 'ADMIN'
+      }
+    })
 
-export const createMedia = async (
-  subaccountId: string,
-  mediaFile: CreateMediaType
-) => {
-  const response = await db.media.create({
-    data: {
-      link: mediaFile.link,
-      name: mediaFile.name,
-      subAccountId: subaccountId,
-    },
+    return newClient
   })
 
   return response
 }
 
-export const deleteMedia = async (mediaId: string) => {
-  const response = await db.media.delete({
-    where: {
-      id: mediaId,
-    },
+export const updateClient = async (clientId: string, client: Partial<Client>) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.client.update({
+    where: { id: clientId },
+    data: client
   })
   return response
 }
 
-export const getPipelineDetails = async (pipelineId: string) => {
-  const response = await db.pipeline.findUnique({
-    where: {
-      id: pipelineId,
-    },
+export const deleteClient = async (clientId: string) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.client.delete({
+    where: { id: clientId }
   })
   return response
 }
 
-export const getLanesWithTicketAndTags = async (pipelineId: string) => {
-  const response = await db.lane.findMany({
-    where: {
-      pipelineId,
-    },
-    orderBy: { order: 'asc' },
+export const getClient = async (clientId: string) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN', 'USER', 'GUEST'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.client.findUnique({
+    where: { id: clientId },
     include: {
-      Tickets: {
-        orderBy: {
-          order: 'asc',
-        },
+      projects: true,
+      clientUsers: {
         include: {
-          Tags: true,
-          Assigned: true,
-          Customer: true,
-        },
+          user: true
+        }
+      }
+    }
+  })
+  return response
+}
+
+export const getClientProjects = async (
+  clientId: string,
+  page = 1,
+  limit = 10
+) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN', 'USER', 'GUEST'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const skip = (page - 1) * limit
+
+  const [projects, total] = await Promise.all([
+    db.project.findMany({
+      where: { clientId },
+      include: {
+        client: true
       },
-    },
-  })
-  return response
-}
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      skip,
+      take: limit
+    }),
+    db.project.count({
+      where: { clientId }
+    })
+  ])
 
-export const upsertFunnel = async (
-  subaccountId: string,
-  funnel: z.infer<typeof CreateFunnelFormSchema> & { liveProducts: string },
-  funnelId: string
-) => {
-  const response = await db.funnel.upsert({
-    where: { id: funnelId },
-    update: funnel,
-    create: {
-      ...funnel,
-      id: funnelId || v4(),
-      subAccountId: subaccountId,
-    },
-  })
-
-  return response
-}
-
-export const upsertPipeline = async (
-  pipeline: Prisma.PipelineUncheckedCreateWithoutLaneInput
-) => {
-  const response = await db.pipeline.upsert({
-    where: { id: pipeline.id || v4() },
-    update: pipeline,
-    create: pipeline,
-  })
-
-  return response
-}
-
-export const deletePipeline = async (pipelineId: string) => {
-  const response = await db.pipeline.delete({
-    where: { id: pipelineId },
-  })
-  return response
-}
-
-export const updateLanesOrder = async (lanes: Lane[]) => {
-  try {
-    const updateTrans = lanes.map((lane) =>
-      db.lane.update({
-        where: {
-          id: lane.id,
-        },
-        data: {
-          order: lane.order,
-        },
-      })
-    )
-
-    await db.$transaction(updateTrans)
-    console.log('🟢 Done reordered 🟢')
-  } catch (error) {
-    console.log(error, 'ERROR UPDATE LANES ORDER')
+  return {
+    projects,
+    pagination: {
+      total,
+      pages: Math.ceil(total / limit),
+      page,
+      limit
+    }
   }
 }
 
-export const updateTicketsOrder = async (tickets: Ticket[]) => {
-  try {
-    const updateTrans = tickets.map((ticket) =>
-      db.ticket.update({
-        where: {
-          id: ticket.id,
-        },
-        data: {
-          order: ticket.order,
-          laneId: ticket.laneId,
-        },
-      })
-    )
+// Project Operations
+export const createProject = async (project: ProjectCreateInput) => {
+  const user = await currentUser()
+  if (!user) return null
 
-    await db.$transaction(updateTrans)
-    console.log('🟢 Done reordered 🟢')
-  } catch (error) {
-    console.log(error, '🔴 ERROR UPDATE TICKET ORDER')
+  if (!project.name || !project.clientId) {
+    throw new ValidationError('Missing required fields')
   }
+
+  const hasAccess = await verifyClientAccess(project.clientId, user.id, ['ADMIN', 'USER'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.project.create({
+    data: {
+      name: project.name,
+      description: project.description,
+      clientId: project.clientId,
+      status: 'NOT_DEPLOYED',
+      builderSpaceId: project.builderSpaceId,
+      builderApiKey: project.builderApiKey,
+      repositoryUrl: project.repositoryUrl
+    },
+    include: {
+      client: true
+    }
+  })
+  return response
 }
 
-export const upsertLane = async (lane: Prisma.LaneUncheckedCreateInput) => {
-  let order: number
+export const updateProject = async (projectId: string, project: Partial<Project>) => {
+  const user = await currentUser()
+  if (!user) return null
 
-  if (!lane.order) {
-    const lanes = await db.lane.findMany({
+  const currentProject = await db.project.findUnique({
+    where: { id: projectId },
+    select: { clientId: true }
+  })
+  if (!currentProject) throw new Error('Project not found')
+
+  const hasAccess = await verifyClientAccess(currentProject.clientId, user.id, ['ADMIN', 'USER'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.project.update({
+    where: { id: projectId },
+    data: project,
+    include: {
+      client: true
+    }
+  })
+  return response
+}
+
+export const updateProjectStatus = async (projectId: string, status: ProjectStatus) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const currentProject = await db.project.findUnique({
+    where: { id: projectId },
+    select: { clientId: true }
+  })
+  if (!currentProject) throw new Error('Project not found')
+
+  const hasAccess = await verifyClientAccess(currentProject.clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized: Only admins can update project status')
+
+  const response = await db.project.update({
+    where: { id: projectId },
+    data: { status },
+    include: {
+      client: true
+    }
+  })
+  return response
+}
+
+export const deleteProject = async (projectId: string) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const currentProject = await db.project.findUnique({
+    where: { id: projectId },
+    select: { clientId: true }
+  })
+  if (!currentProject) throw new Error('Project not found')
+
+  const hasAccess = await verifyClientAccess(currentProject.clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.project.delete({
+    where: { id: projectId }
+  })
+  return response
+}
+
+export const getProject = async (projectId: string): Promise<ProjectWithDetails | null> => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    include: {
+      client: {
+        include: {
+          clientUsers: {
+            include: {
+              user: true
+            }
+          }
+        }
+      }
+    }
+  })
+
+  if (!project) throw new Error('Project not found')
+
+  const hasAccess = await verifyClientAccess(project.clientId, user.id, ['ADMIN', 'USER', 'GUEST'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  return project
+}
+
+export const getProjects = async (filters?: {
+  status?: ProjectStatus
+  clientId?: string
+  search?: string
+  page?: number
+  limit?: number
+}) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const page = filters?.page || 1
+  const limit = filters?.limit || 10
+  const skip = (page - 1) * limit
+
+  // Get all clients user has access to
+  const accessibleClients = await db.clientUser.findMany({
+    where: {
+      userId: user.id
+    },
+    select: {
+      clientId: true
+    }
+  })
+
+  const clientIds = accessibleClients.map(c => c.clientId)
+
+  const [projects, total] = await Promise.all([
+    db.project.findMany({
       where: {
-        pipelineId: lane.pipelineId,
+        AND: [
+          { clientId: { in: clientIds } },
+          filters?.status ? { status: filters.status } : {},
+          filters?.clientId ? { clientId: filters.clientId } : {},
+          filters?.search ? {
+            OR: [
+              { name: { contains: filters.search, mode: 'insensitive' } },
+              { description: { contains: filters.search, mode: 'insensitive' } }
+            ]
+          } : {}
+        ]
       },
+      include: {
+        client: true
+      },
+      orderBy: {
+        updatedAt: 'desc'
+      },
+      skip,
+      take: limit
+    }),
+    db.project.count({
+      where: {
+        AND: [
+          { clientId: { in: clientIds } },
+          filters?.status ? { status: filters.status } : {},
+          filters?.clientId ? { clientId: filters.clientId } : {},
+          filters?.search ? {
+            OR: [
+              { name: { contains: filters.search, mode: 'insensitive' } },
+              { description: { contains: filters.search, mode: 'insensitive' } }
+            ]
+          } : {}
+        ]
+      }
     })
+  ])
 
-    order = lanes.length
-  } else {
-    order = lane.order
+  return {
+    projects,
+    pagination: {
+      total,
+      pages: Math.ceil(total / limit),
+      page,
+      limit
+    }
   }
+}
 
-  const response = await db.lane.upsert({
-    where: { id: lane.id || v4() },
-    update: lane,
-    create: { ...lane, order },
+// Access Control
+export const addUserToClient = async (clientId: string, userEmail: string, role: Role = 'GUEST') => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const targetUser = await db.user.findUnique({
+    where: { email: userEmail }
   })
+  if (!targetUser) throw new Error('User not found')
 
-  return response
-}
-
-export const deleteLane = async (laneId: string) => {
-  const resposne = await db.lane.delete({ where: { id: laneId } })
-  return resposne
-}
-
-export const getTicketsWithTags = async (pipelineId: string) => {
-  const response = await db.ticket.findMany({
-    where: {
-      Lane: {
-        pipelineId,
-      },
+  const response = await db.clientUser.create({
+    data: {
+      clientId,
+      userId: targetUser.id,
+      role
     },
-    include: { Tags: true, Assigned: true, Customer: true },
-  })
-  return response
-}
-
-export const _getTicketsWithAllRelations = async (laneId: string) => {
-  const response = await db.ticket.findMany({
-    where: { laneId: laneId },
     include: {
-      Assigned: true,
-      Customer: true,
-      Lane: true,
-      Tags: true,
-    },
+      user: true,
+      client: true
+    }
   })
   return response
 }
 
-export const getSubAccountTeamMembers = async (subaccountId: string) => {
-  const subaccountUsersWithAccess = await db.user.findMany({
+export const removeUserFromClient = async (clientId: string, userId: string) => {
+  const user = await currentUser()
+  if (!user) return null
+
+  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN'])
+  if (!hasAccess) throw new AuthorizationError('Unauthorized')
+
+  const response = await db.clientUser.delete({
     where: {
-      Agency: {
-        SubAccount: {
-          some: {
-            id: subaccountId,
-          },
-        },
-      },
-      role: 'SUBACCOUNT_USER',
-      Permissions: {
-        some: {
-          subAccountId: subaccountId,
-          access: true,
-        },
-      },
-    },
+      clientId_userId: {
+        clientId,
+        userId
+      }
+    }
   })
-  return subaccountUsersWithAccess
+  return response
 }
 
-export const searchContacts = async (searchTerms: string) => {
-  const response = await db.contact.findMany({
+// Helper Functions
+async function verifyClientAccess(
+  clientId: string, 
+  userId: string, 
+  allowedRoles: Role[]
+): Promise<boolean> {
+  const clientUser = await db.clientUser.findFirst({
     where: {
-      name: {
-        contains: searchTerms,
-      },
-    },
+      clientId,
+      userId,
+      role: {
+        in: allowedRoles
+      }
+    }
   })
-  return response
-}
-
-export const upsertTicket = async (
-  ticket: Prisma.TicketUncheckedCreateInput,
-  tags: Tag[]
-) => {
-  let order: number
-  if (!ticket.order) {
-    const tickets = await db.ticket.findMany({
-      where: { laneId: ticket.laneId },
-    })
-    order = tickets.length
-  } else {
-    order = ticket.order
-  }
-
-  const response = await db.ticket.upsert({
-    where: {
-      id: ticket.id || v4(),
-    },
-    update: { ...ticket, Tags: { set: tags } },
-    create: { ...ticket, Tags: { connect: tags }, order },
-    include: {
-      Assigned: true,
-      Customer: true,
-      Tags: true,
-      Lane: true,
-    },
-  })
-
-  return response
-}
-
-export const deleteTicket = async (ticketId: string) => {
-  const response = await db.ticket.delete({
-    where: {
-      id: ticketId,
-    },
-  })
-
-  return response
-}
-
-export const upsertTag = async (
-  subaccountId: string,
-  tag: Prisma.TagUncheckedCreateInput
-) => {
-  const response = await db.tag.upsert({
-    where: { id: tag.id || v4(), subAccountId: subaccountId },
-    update: tag,
-    create: { ...tag, subAccountId: subaccountId },
-  })
-
-  return response
-}
-
-export const getTagsForSubaccount = async (subaccountId: string) => {
-  const response = await db.subAccount.findUnique({
-    where: { id: subaccountId },
-    select: { Tags: true },
-  })
-  return response
-}
-
-export const deleteTag = async (tagId: string) => {
-  const response = await db.tag.delete({ where: { id: tagId } })
-  return response
-}
-
-export const upsertContact = async (
-  contact: Prisma.ContactUncheckedCreateInput
-) => {
-  const response = await db.contact.upsert({
-    where: { id: contact.id || v4() },
-    update: contact,
-    create: contact,
-  })
-  return response
-}
-
-export const getFunnels = async (subacountId: string) => {
-  const funnels = await db.funnel.findMany({
-    where: { subAccountId: subacountId },
-    include: { FunnelPages: true },
-  })
-
-  return funnels
-}
-
-export const getFunnel = async (funnelId: string) => {
-  const funnel = await db.funnel.findUnique({
-    where: { id: funnelId },
-    include: {
-      FunnelPages: {
-        orderBy: {
-          order: 'asc',
-        },
-      },
-    },
-  })
-
-  return funnel
-}
-
-export const updateFunnelProducts = async (
-  products: string,
-  funnelId: string
-) => {
-  const data = await db.funnel.update({
-    where: { id: funnelId },
-    data: { liveProducts: products },
-  })
-  return data
-}
-
-export const upsertFunnelPage = async (
-  subaccountId: string,
-  funnelPage: UpsertFunnelPage,
-  funnelId: string
-) => {
-  if (!subaccountId || !funnelId) return
-  const response = await db.funnelPage.upsert({
-    where: { id: funnelPage.id || '' },
-    update: { ...funnelPage },
-    create: {
-      ...funnelPage,
-      content: funnelPage.content
-        ? funnelPage.content
-        : JSON.stringify([
-            {
-              content: [],
-              id: '__body',
-              name: 'Body',
-              styles: { backgroundColor: 'white' },
-              type: '__body',
-            },
-          ]),
-      funnelId,
-    },
-  })
-
-  revalidatePath(`/subaccount/${subaccountId}/funnels/${funnelId}`, 'page')
-  return response
-}
-
-export const deleteFunnelePage = async (funnelPageId: string) => {
-  const response = await db.funnelPage.delete({ where: { id: funnelPageId } })
-
-  return response
-}
-
-export const getFunnelPageDetails = async (funnelPageId: string) => {
-  const response = await db.funnelPage.findUnique({
-    where: {
-      id: funnelPageId,
-    },
-  })
-
-  return response
-}
-
-export const getDomainContent = async (subDomainName: string) => {
-  const response = await db.funnel.findUnique({
-    where: {
-      subDomainName,
-    },
-    include: { FunnelPages: true },
-  })
-  return response
-}
-
-export const getPipelines = async (subaccountId: string) => {
-  const response = await db.pipeline.findMany({
-    where: { subAccountId: subaccountId },
-    include: {
-      Lane: {
-        include: { Tickets: true },
-      },
-    },
-  })
-  return response
+  return !!clientUser
 }
