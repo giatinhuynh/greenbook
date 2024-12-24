@@ -1,49 +1,42 @@
-import AgencyDetails from '@/components/forms/agency-details'
 import UserDetails from '@/components/forms/user-details'
-import { db } from '@/lib/db'
+import BlurPage from '@/components/global/blur-page'
+import { getAuthUserDetails } from '@/lib/queries'
 import { currentUser } from '@clerk/nextjs/server'
+import { redirect } from 'next/navigation'
 import React from 'react'
 
 type Props = {
-  params: Promise<{ agencyId: string }> | { agencyId: string }
+  params: { userId: string }
 }
 
-const SettingsPage = async ({ params }: Props) => {
-  const resolvedParams = await params
+const UserSettingsPage = async ({ params }: Props) => {
   const authUser = await currentUser()
-  if (!authUser) return null
+  if (!authUser) return redirect('/')
 
-  const userDetails = await db.user.findUnique({
-    where: {
-      email: authUser.emailAddresses[0].emailAddress,
-    },
-  })
-
+  const userDetails = await getAuthUserDetails()
   if (!userDetails) return null
-  const agencyDetails = await db.agency.findUnique({
-    where: {
-      id: resolvedParams.agencyId,
-    },
-    include: {
-      SubAccount: true,
-    },
-  })
 
-  if (!agencyDetails) return null
-
-  const subAccounts = agencyDetails.SubAccount
+  // Get all clients for user access management
+  const allClients = [
+    ...userDetails.clients,
+    ...userDetails.clientUsers.map(cu => cu.client)
+  ].reduce((unique, client) => {
+    const exists = unique.find(u => u.id === client.id)
+    if (!exists) {
+      unique.push(client)
+    }
+    return unique
+  }, [] as any[])
 
   return (
-    <div className="flex lg:!flex-row flex-col gap-4">
-      <AgencyDetails data={agencyDetails} />
-      <UserDetails
-        type="agency"
-        id={resolvedParams.agencyId}
-        subAccounts={subAccounts}
-        userData={userDetails}
-      />
-    </div>
+    <BlurPage>
+      <div className="flex lg:!flex-row flex-col gap-4">
+        <UserDetails
+          userData={userDetails}
+          clients={allClients} id={null}/>
+      </div>
+    </BlurPage>
   )
 }
 
-export default SettingsPage
+export default UserSettingsPage

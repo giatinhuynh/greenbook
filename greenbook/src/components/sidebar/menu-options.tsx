@@ -23,9 +23,12 @@ import { useModal } from '@/providers/modal-provider'
 
 type Props = {
   defaultOpen?: boolean
-  details: any  // Consider typing this as User | (Client & { projects: any[] })
+  details: any
   id: string
-  sidebarLogo: string
+  sidebarContent: {
+    type: 'text' | 'logo'
+    content: string
+  }
   sidebarOpt: {
     id: string
     name: string
@@ -41,7 +44,7 @@ type Props = {
 
 const MenuOptions = ({
   details,
-  sidebarLogo,
+  sidebarContent,
   sidebarOpt,
   clients,
   user,
@@ -86,14 +89,18 @@ const MenuOptions = ({
         )}
       >
         {/* Sidebar Logo */}
-        <AspectRatio ratio={16 / 5}>
-          <Image
-            src={sidebarLogo}
-            alt="Sidebar Logo"
-            fill
-            className="rounded-md object-contain"
-          />
-        </AspectRatio>
+        {sidebarContent.type === 'text' ? (
+          <span className="text-xl font-bold">{sidebarContent.content}</span>
+        ) : (
+          <div className="relative w-40 h-40">
+            <Image
+              src={sidebarContent.content}
+              alt="logo"
+              className="object-contain"
+              fill
+            />
+          </div>
+        )}
 
         {/* Sidebar Navigation */}
         <p className="text-muted-foreground text-xs mb-2">MENU LINKS</p>

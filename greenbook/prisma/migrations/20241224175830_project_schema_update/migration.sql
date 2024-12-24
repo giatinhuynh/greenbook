@@ -9,7 +9,6 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
-    "avatarUrl" TEXT,
     "role" "Role" NOT NULL DEFAULT 'USER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -20,7 +19,6 @@ CREATE TABLE "User" (
 -- CreateTable
 CREATE TABLE "Client" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
     "companyName" TEXT NOT NULL,
     "companyLogo" TEXT,
     "companyEmail" TEXT NOT NULL,
@@ -44,7 +42,7 @@ CREATE TABLE "Project" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "builderSpaceId" TEXT,
-    "builderApiKey" TEXT,
+    "builderPublicKey" TEXT,
     "repositoryUrl" TEXT,
     "deploymentUrl" TEXT,
     "status" "ProjectStatus" NOT NULL DEFAULT 'NOT_DEPLOYED',
@@ -73,9 +71,6 @@ CREATE UNIQUE INDEX "Client_companyEmail_key" ON "Client"("companyEmail");
 
 -- CreateIndex
 CREATE INDEX "Client_createdById_idx" ON "Client"("createdById");
-
--- CreateIndex
-CREATE UNIQUE INDEX "Project_builderSpaceId_key" ON "Project"("builderSpaceId");
 
 -- CreateIndex
 CREATE INDEX "Project_clientId_idx" ON "Project"("clientId");

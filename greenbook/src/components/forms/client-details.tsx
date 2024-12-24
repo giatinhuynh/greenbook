@@ -30,7 +30,6 @@ import Loading from '../global/loading'
 import { useModal } from '@/providers/modal-provider'
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
   companyName: z.string().min(1, 'Company name is required'),
   companyEmail: z.string().email('Invalid email'),
   companyPhone: z.string().optional(),
@@ -56,7 +55,6 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: details?.name,
       companyName: details?.companyName,
       companyEmail: details?.companyEmail,
       companyPhone: details?.companyPhone!,
@@ -99,7 +97,6 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
   useEffect(() => {
     if (details) {
       form.reset({
-        name: details.name,
         companyName: details.companyName,
         companyEmail: details.companyEmail,
         companyPhone: details.companyPhone || undefined,
@@ -132,7 +129,6 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
                   <FormLabel>Company Logo</FormLabel>
                   <FormControl>
                     <FileUpload
-                      apiEndpoint="companyLogo"
                       value={field.value}
                       onChange={field.onChange}
                     />
@@ -143,24 +139,6 @@ const ClientDetails: React.FC<ClientDetailsProps> = ({
             />
             
             <div className="flex md:flex-row gap-4">
-              <FormField
-                disabled={isLoading}
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>Client Name</FormLabel>
-                    <FormControl>
-                      <Input
-                        required
-                        placeholder="Client name"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 disabled={isLoading}
                 control={form.control}

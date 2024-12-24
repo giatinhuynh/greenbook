@@ -1,7 +1,7 @@
 import InfoBar from '@/components/global/infobar'
 import Sidebar from '@/components/sidebar'
 import Unauthorized from '@/components/unauthorized'
-import { getAuthUserDetails, getClient } from '@/lib/queries'
+import { getAuthUserDetails, getProject } from '@/lib/queries'
 import { currentUser } from '@clerk/nextjs/server'
 import { Role } from '@prisma/client'
 import { redirect } from 'next/navigation'
@@ -9,49 +9,42 @@ import React from 'react'
 
 type Props = {
   children: React.ReactNode
-  params: { clientId: string }
+  params: { projectId: string }
 }
 
-const ClientLayout = async ({ children, params }: Props) => {
-  const { clientId } = params
+const ProjectLayout = async ({ children, params }: Props) => {
+  const { projectId } = params
   const user = await currentUser()
   
   if (!user) {
     return redirect('/')
   }
 
-  // Get user details including client access
   const userDetails = await getAuthUserDetails()
   if (!userDetails) {
     return <Unauthorized />
   }
 
-  // Check if user has access to this client
+  // Check if user has access to this project through client access
   const clientAccess = userDetails.clientUsers.find(
-    (cu: { client: { id: string } }) => cu.client.id === clientId
+    cu => cu.client.projects.some(p => p.id === projectId)
   )
 
   if (!clientAccess) {
     return <Unauthorized />
   }
 
-  // Get full client details
-  const clientDetails = await getClient(clientId)
-  if (!clientDetails) {
-    return <Unauthorized />
-  }
-
   return (
     <div className="h-screen overflow-hidden">
       <Sidebar
-        id={clientId}
-        type="client"
+        id={projectId}
+        type="project"
         clients={userDetails.clientUsers}
       />
       <div className="md:pl-[300px]">
         <InfoBar
           role={clientAccess.role as Role}
-          clientId={clientId} 
+          clientId={clientAccess.client.id}
         />
         <div className="relative">
           {children}
@@ -61,4 +54,4 @@ const ClientLayout = async ({ children, params }: Props) => {
   )
 }
 
-export default ClientLayout
+export default ProjectLayout

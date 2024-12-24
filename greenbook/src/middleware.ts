@@ -1,40 +1,45 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-// Define public routes
-const isPublicRoute = createRouteMatcher(['/site', '/api/uploadthing']);
+// Define public routes and auth routes that should be accessible without authentication
+const isPublicRoute = createRouteMatcher([
+  '/', 
+  '/api/uploadthing', 
+  '/site',
+  '/user/sign-in(.*)',
+  '/user/sign-up(.*)'
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   const url = req.nextUrl;
   const searchParams = url.searchParams.toString();
-  const hostname = req.headers.get('host') || '';
   const pathWithSearchParams = `${url.pathname}${searchParams ? `?${searchParams}` : ''}`;
 
-  // Check for subdomain
-  const customSubDomain = hostname.split(process.env.NEXT_PUBLIC_DOMAIN || '').filter(Boolean)[0];
-
-  if (customSubDomain) {
-    return NextResponse.rewrite(new URL(`/${customSubDomain}${pathWithSearchParams}`, req.url));
-  }
-
+  // Handle sign-in/sign-up redirects
   if (url.pathname === '/sign-in' || url.pathname === '/sign-up') {
-    return NextResponse.redirect(new URL(`/agency/sign-in`, req.url));
+    return NextResponse.redirect(new URL('/user/sign-in', req.url));
   }
 
-  if (url.pathname === '/' || (url.pathname === '/site' && hostname === process.env.NEXT_PUBLIC_DOMAIN)) {
+  // Handle root and site routes
+  if (url.pathname === '/' || url.pathname === '/site') {
     return NextResponse.rewrite(new URL('/site', req.url));
   }
 
-  if (url.pathname.startsWith('/agency') || url.pathname.startsWith('/subaccount')) {
+  // Check authentication for protected routes, but exclude auth routes
+  if (url.pathname.startsWith('/user') && !isPublicRoute(req)) {
+    const session = await auth.protect();
+    if (!session) {
+      return NextResponse.redirect(new URL('/user/sign-in', req.url));
+    }
     return NextResponse.rewrite(new URL(`${pathWithSearchParams}`, req.url));
   }
 
-  // Protect routes that are not public
+  // Protect other non-public routes
   if (!isPublicRoute(req)) {
     await auth.protect();
   }
 });
 
 export const config = {
-  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: ['/((?!.+\\.[\\w]+$|_next).*)', '/', '/(api|trpc)(.*)']
 };

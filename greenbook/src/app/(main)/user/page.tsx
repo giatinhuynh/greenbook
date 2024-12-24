@@ -1,37 +1,45 @@
-'use server'
-
-import AgencyDetails from '@/components/forms/agency-details'
-import { getAuthUserDetails, verifyAndAcceptInvitation } from '@/lib/queries'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
+import { getAuthUserDetails } from '@/lib/queries'
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import React from 'react'
+import UserDetails from '@/components/forms/user-details'
+import BlurPage from '@/components/global/blur-page'
 
 const Page = async () => {
-  const agencyId = await verifyAndAcceptInvitation()
-  
-  //get the users details
+  const authUser = await currentUser()
+  if (!authUser) return redirect('/')
+
   const user = await getAuthUserDetails()
-  if (agencyId) {
-    if (user?.role === 'SUBACCOUNT_GUEST' || user?.role === 'SUBACCOUNT_USER') {
-      return redirect('/subaccount')
-    } else if (user?.role === 'AGENCY_OWNER' || user?.role === 'AGENCY_ADMIN') {
-      return redirect(`/agency/${agencyId}`)
-    } else {
-      return <div>Not authorized</div>
-    }
+
+  // If user doesn't exist in our database, show profile completion form
+  if (!user) {
+    return (
+      <BlurPage>
+        <Card className="max-w-3xl mx-auto">
+          <CardHeader>
+            <CardTitle>Complete Your Profile</CardTitle>
+            <CardDescription>
+              Please provide some additional information to complete your profile setup.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UserDetails
+              id={authUser.id}
+              userData={{
+                name: `${authUser.firstName} ${authUser.lastName}`,
+                email: authUser.emailAddresses[0].emailAddress,
+                role: 'USER'
+              }}
+              isNewUser={true}
+            />
+          </CardContent>
+        </Card>
+      </BlurPage>
+    )
   }
 
-  const authUser = await currentUser()
-  return (
-    <div className="flex justify-center items-center mt-4">
-      <div className="max-w-[850px] border-[1px] p-4 rounded-xl">
-        <h1 className="text-4xl"> Create An Agency</h1>
-        <AgencyDetails
-          data={{ companyEmail: authUser?.emailAddresses[0].emailAddress }}
-        />
-      </div>
-    </div>
-  )
+  // Redirect to user's dashboard if profile exists
+  return redirect(`/user/${authUser.id}`)
 }
 
 export default Page

@@ -1,66 +1,50 @@
-import BlurPage from '@/components/global/blur-page'
 import InfoBar from '@/components/global/infobar'
 import Sidebar from '@/components/sidebar'
-import Unauthorized from '@/components/unauthorized'
+import { getAuthUserDetails } from '@/lib/queries'
 import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
 import React from 'react'
-import { getAuthUserDetails } from '@/lib/queries'
 
-interface LayoutProps {
+type Props = {
   children: React.ReactNode
   params: { userId: string }
 }
 
-const Layout = async ({ children, params }: LayoutProps) => {
+const UserLayout = async ({ children, params }: Props) => {
   const { userId } = params
   const user = await currentUser()
   
   if (!user) {
-    redirect('/sign-in')
+    return redirect('/user/sign-in')
   }
 
-  try {
-    const userData = await getAuthUserDetails()
-    
-    if (!userData) {
-      redirect('/sign-in')
-    }
+  // Get user details
+  const userDetails = await getAuthUserDetails()
+  if (!userDetails) {
+    return redirect('/user')
+  }
 
-    // Validate that the user ID matches the route param
-    if (user.id !== userId) {
-      return <Unauthorized />
-    }
+  // Verify this is the correct user
+  if (userDetails.id !== userId) {
+    return redirect(`/user/${userDetails.id}`)
+  }
 
-    // Get user's clients and their roles 
-    const clientsWithAccess = userData.clientUsers.map((cu: any) => ({
-      client: cu.client,
-      role: cu.role
-    }))
-
-    return (
-      <main className="h-screen overflow-hidden">
-        <Sidebar
-          id={userId}
-          type="agency"
-          clients={clientsWithAccess}
+  return (
+    <div className="h-screen overflow-hidden">
+      <Sidebar
+        id={userId}
+        type="user"
+      />
+      <div className="md:pl-[300px]">
+        <InfoBar
+          role={userDetails.role}
         />
-        <div className="md:pl-[300px]">
-          <InfoBar
-            role={userData.role} 
-          />
-          <div className="relative">
-            <BlurPage>
-              {children}
-            </BlurPage>
-          </div>
+        <div className="relative">
+          {children}
         </div>
-      </main>
-    )
-  } catch (error) {
-    console.error('Error in user layout:', error)
-    redirect('/sign-in')
-  }
+      </div>
+    </div>
+  )
 }
 
-export default Layout
+export default UserLayout

@@ -5,39 +5,24 @@ import { Button } from '../ui/button'
 import { UploadDropzone } from '@/lib/uploadthing'
 
 type Props = {
-  apiEndpoint: 'agencyLogo' | 'avatar' | 'companyLogo'
   onChange: (url?: string) => void
   value?: string
 }
 
-const FileUpload = ({ apiEndpoint, onChange, value }: Props) => {
+const FileUpload = ({ onChange, value }: Props) => {
   const type = value?.split('.').pop()
 
   if (value) {
     return (
       <div className="flex flex-col justify-center items-center">
-        {type !== 'pdf' ? (
-          <div className="relative w-40 h-40">
-            <Image
-              src={value}
-              alt="uploaded image"
-              className="object-contain"
-              fill
-            />
-          </div>
-        ) : (
-          <div className="relative flex items-center p-2 mt-2 rounded-md bg-background/10">
-            <FileIcon />
-            <a
-              href={value}
-              target="_blank"
-              rel="noopener_noreferrer"
-              className="ml-2 text-sm text-indigo-500 dark:text-indigo-400 hover:underline"
-            >
-              View PDF
-            </a>
-          </div>
-        )}
+        <div className="relative w-40 h-40">
+          <Image
+            src={value}
+            alt="company logo"
+            className="object-contain"
+            fill
+          />
+        </div>
         <Button
           onClick={() => onChange('')}
           variant="ghost"
@@ -52,7 +37,7 @@ const FileUpload = ({ apiEndpoint, onChange, value }: Props) => {
   return (
     <div className="w-full bg-muted/30">
       <UploadDropzone
-        endpoint={apiEndpoint}
+        endpoint="companyLogo"
         onClientUploadComplete={(res) => {
           onChange(res?.[0].url)
         }}

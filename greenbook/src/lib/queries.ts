@@ -50,20 +50,22 @@ export const initUser = async (newUser: Partial<User>) => {
     where: {
       email: user.emailAddresses[0].emailAddress,
     },
-    update: newUser,
+    update: {
+      ...newUser,
+      role: undefined 
+    },
     create: {
       id: user.id,
-      avatarUrl: user.imageUrl,
       email: user.emailAddresses[0].emailAddress,
       name: `${user.firstName} ${user.lastName}`,
-      role: newUser.role || 'USER',
+      role: 'USER',
     },
   })
 
   const clerk = await clerkClient()
   await clerk.users.updateUserMetadata(user.id, {
     privateMetadata: {
-      role: newUser.role || 'USER',
+      role: 'USER',
     },
   })
 
@@ -75,14 +77,13 @@ export const createClient = async (client: Partial<Client>) => {
   const user = await currentUser()
   if (!user) return null
 
-  if (!client.name || !client.companyName || !client.companyEmail) {
+  if (!client.companyName || !client.companyEmail) {
     throw new ValidationError('Missing required fields')
   }
 
   const response = await db.$transaction(async (tx) => {
     const newClient = await tx.client.create({
       data: {
-        name: client.name!,
         companyName: client.companyName!,
         companyEmail: client.companyEmail!,
         companyLogo: client.companyLogo ?? null,
@@ -141,10 +142,8 @@ export const getClient = async (clientId: string) => {
   const user = await currentUser()
   if (!user) return null
 
-  const hasAccess = await verifyClientAccess(clientId, user.id, ['ADMIN', 'USER', 'GUEST'])
-  if (!hasAccess) throw new AuthorizationError('Unauthorized')
-
-  const response = await db.client.findUnique({
+  // First check if the client exists
+  const client = await db.client.findUnique({
     where: { id: clientId },
     include: {
       projects: true,
@@ -155,7 +154,25 @@ export const getClient = async (clientId: string) => {
       }
     }
   })
-  return response
+
+  if (!client) return null
+
+  // Then check access
+  const clientUser = await db.clientUser.findFirst({
+    where: {
+      clientId,
+      userId: user.id,
+    }
+  })
+
+  // Allow access if user is either:
+  // 1. The creator of the client
+  // 2. Has a clientUser association
+  if (client.createdById !== user.id && !clientUser) {
+    throw new AuthorizationError('Unauthorized')
+  }
+
+  return client
 }
 
 export const getClientProjects = async (
@@ -217,9 +234,9 @@ export const createProject = async (project: ProjectCreateInput) => {
       description: project.description,
       clientId: project.clientId,
       status: 'NOT_DEPLOYED',
+      repositoryUrl: project.repositoryUrl,
       builderSpaceId: project.builderSpaceId,
-      builderApiKey: project.builderApiKey,
-      repositoryUrl: project.repositoryUrl
+      builderPublicKey: project.builderPublicKey
     },
     include: {
       client: true

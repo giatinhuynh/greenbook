@@ -46,9 +46,10 @@ type Props = {
   id: string | null
   userData?: Partial<User>
   clients?: Client[]
+  isNewUser?: boolean
 }
 
-const UserDetails = ({ id, userData, clients }: Props) => {
+const UserDetails = ({ id, userData, clients, isNewUser }: Props) => {
   const { data, setClose } = useModal()
   const [roleState, setRoleState] = useState('')
   const [loadingPermissions, setLoadingPermissions] = useState(false)
@@ -56,20 +57,9 @@ const UserDetails = ({ id, userData, clients }: Props) => {
   const { toast } = useToast()
   const router = useRouter()
 
-  useEffect(() => {
-    if (data.user) {
-      const fetchDetails = async () => {
-        const response = await getAuthUserDetails()
-        if (response) setAuthUserData(response)
-      }
-      fetchDetails()
-    }
-  }, [data])
-
   const userDataSchema = z.object({
     name: z.string().min(1),
     email: z.string().email(),
-    avatarUrl: z.string(),
     role: z.enum(['ADMIN', 'USER', 'GUEST']),
   })
 
@@ -77,50 +67,58 @@ const UserDetails = ({ id, userData, clients }: Props) => {
     resolver: zodResolver(userDataSchema),
     mode: 'onChange',
     defaultValues: {
-      name: userData?.name ?? data?.user?.name ?? '',
-      email: userData?.email ?? data?.user?.email ?? '',
-      avatarUrl: userData?.avatarUrl ?? data?.user?.avatarUrl ?? '',
-      role: userData?.role ?? data?.user?.role ?? 'USER',
+      name: '',
+      email: '',
     },
   })
 
   useEffect(() => {
-    if (data.user) {
-      form.reset({
-        name: data.user.name,
-        email: data.user.email,
-        avatarUrl: data.user.avatarUrl ?? '',
-        role: data.user.role
-      })
+    const initialValues = {
+      name: userData?.name ?? data?.user?.name ?? '',
+      email: userData?.email ?? data?.user?.email ?? '',
+      role: userData?.role ?? data?.user?.role ?? 'USER',
     }
-    if (userData) {
-      form.reset({
-        name: userData.name ?? '',
-        email: userData.email ?? '',
-        avatarUrl: userData.avatarUrl ?? '',
-        role: userData.role ?? 'USER'
-      })
+    form.reset(initialValues)
+  }, [userData, data?.user, form])
+
+  useEffect(() => {
+    if (!data.user) return
+
+    const fetchAuthUser = async () => {
+      try {
+        const response = await getAuthUserDetails()
+        if (response) {
+          setAuthUserData(response)
+        }
+      } catch (error) {
+        console.error('Error fetching user details:', error)
+      }
     }
-  }, [userData, data])
+
+    fetchAuthUser()
+  }, [data.user])
 
   const onSubmit = async (values: z.infer<typeof userDataSchema>) => {
-    if (!id) return
-    if (userData || data?.user) {
+    try {
       const updatedUser = await initUser(values)
       if (updatedUser) {
         toast({
           title: 'Success',
-          description: 'Updated User Information',
+          description: isNewUser ? 'Profile created successfully' : 'Updated User Information',
         })
-        setClose()
-        router.refresh()
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Could not update user information',
-        })
+        if (isNewUser) {
+          router.push(`/user/${updatedUser.id}`)
+        } else {
+          setClose()
+          router.refresh()
+        }
       }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Could not update user information',
+      })
     }
   }
 
@@ -136,25 +134,6 @@ const UserDetails = ({ id, userData, clients }: Props) => {
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
-            <FormField
-              disabled={form.formState.isSubmitting}
-              control={form.control}
-              name="avatarUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Profile picture</FormLabel>
-                  <FormControl>
-                    <FileUpload
-                      apiEndpoint="avatar"
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <FormField
               disabled={form.formState.isSubmitting}
               control={form.control}
@@ -196,46 +175,33 @@ const UserDetails = ({ id, userData, clients }: Props) => {
               )}
             />
 
-            <FormField
-              disabled={form.formState.isSubmitting}
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormLabel>User Role</FormLabel>
-                  <Select
-                    disabled={field.value === 'ADMIN'}
-                    onValueChange={(value) => {
-                      if (value === 'GUEST') {
-                        setRoleState(
-                          'Guest users have limited access to view client information.'
-                        )
-                      } else if (value === 'USER') {
-                        setRoleState(
-                          'Users can view and manage client projects.'
-                        )
-                      } else {
-                        setRoleState('')
-                      }
-                      field.onChange(value)
-                    }}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
+            {!isNewUser && authUserData?.role === 'ADMIN' && (
+              <FormField
+                disabled={form.formState.isSubmitting}
+                control={form.control}
+                name="role"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormLabel>User Role</FormLabel>
+                    <Select
+                      disabled={form.formState.isSubmitting}
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select user role..." />
+                        <SelectValue placeholder="Select role" />
                       </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="ADMIN">Admin</SelectItem>
-                      <SelectItem value="USER">User</SelectItem>
-                      <SelectItem value="GUEST">Guest</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-muted-foreground">{roleState}</p>
-                </FormItem>
-              )}
-            />
+                      <SelectContent>
+                        <SelectItem value="ADMIN">Admin</SelectItem>
+                        <SelectItem value="USER">User</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <Button
               disabled={form.formState.isSubmitting}

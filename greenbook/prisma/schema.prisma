@@ -26,7 +26,6 @@ model User {
  id            String         @id @default(uuid())
  name          String
  email         String         @unique
- avatarUrl     String?        @db.Text
  role          Role          @default(USER)
  createdAt     DateTime      @default(now())
  updatedAt     DateTime      @updatedAt
@@ -38,7 +37,6 @@ model User {
 
 model Client {
  id            String         @id @default(uuid())
- name          String
  companyName   String
  companyLogo   String?        @db.Text
  companyEmail  String         @unique
@@ -61,27 +59,27 @@ model Client {
 }
 
 model Project {
- id              String        @id @default(uuid())
- name            String
- description     String?
- createdAt       DateTime      @default(now())
- updatedAt       DateTime      @updatedAt
+ id                    String        @id @default(uuid())
+ name                  String
+ description           String?
+ createdAt            DateTime      @default(now())
+ updatedAt            DateTime      @updatedAt
  
  // Builder.io integration
- builderSpaceId  String?       @unique
- builderApiKey   String?
+ builderSpaceId     String?       // Space ID for reference
+ builderPublicKey   String?       // Public API key for client-side access
  
  // GitHub integration
- repositoryUrl   String?
+ repositoryUrl        String?
  
  // Deployment
- deploymentUrl   String?
- status          ProjectStatus @default(NOT_DEPLOYED)
+ deploymentUrl        String?
+ status              ProjectStatus  @default(NOT_DEPLOYED)
  
  // Relationships
- client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
- clientId        String
-  @@index([clientId])
+ client              Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+ clientId            String
+ @@index([clientId])
 }
 
 model ClientUser {
